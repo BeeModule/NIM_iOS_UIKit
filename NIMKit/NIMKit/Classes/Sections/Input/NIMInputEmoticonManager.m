@@ -150,8 +150,8 @@
 {
     NSMutableArray *catalogs = [NSMutableArray array];
     
-    NSURL *url = [[NSBundle mainBundle] URLForResource:[[NIMKit sharedKit] emoticonBundleName]
-                                         withExtension:nil];
+    NSURL *url = [[NSBundle bundleForClass:NIMKit.class] URLForResource:NIMKit.sharedKit.emoticonBundleName
+                                                          withExtension:nil];
     NSBundle *bundle = [NSBundle bundleWithURL:url];
     
     NSString *filepath = [bundle pathForResource:@"emoji_ios" ofType:@"plist" inDirectory:NIMKit_EmojiPath];
