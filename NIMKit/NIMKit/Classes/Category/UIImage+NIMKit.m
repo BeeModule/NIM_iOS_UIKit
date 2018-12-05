@@ -94,16 +94,17 @@
 
 
 + (UIImage *)nim_imageInKit:(NSString *)imageName{
+    UIImage *image = [UIImage imageNamed:imageName];
+    
+    if (image != nil) {
+        return image;
+    }
+    
     NSURL *url = [[NSBundle bundleForClass:NIMKit.class].resourceURL URLByAppendingPathComponent:NIMKit.sharedKit.resourceBundleName];
     NSBundle *bundle = [NSBundle bundleWithURL:url];
     
-    NSString *name = [[[NIMKit sharedKit] resourceBundleName] stringByAppendingPathComponent:imageName];
-    
-    UIImage *image = [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
-    
-    
     //优先取上层bundle 里的图片，如果没有，则用自带资源的图片
-    return image? image : [UIImage imageNamed:name];
+    return [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
 }
 
 + (UIImage *)nim_emoticonInKit:(NSString *)imageName
