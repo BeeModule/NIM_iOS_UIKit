@@ -32,7 +32,7 @@
     //先拿2倍图
     NSString *doubleImage  = [imageName stringByAppendingString:@"@2x"];
     NSString *tribleImage  = [imageName stringByAppendingString:@"@3x"];
-    NSString *bundlePath   = [[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:subDirectory];
+    NSString *bundlePath   = [[NSBundle bundleForClass:NIMKit.class].bundlePath stringByAppendingPathComponent:subDirectory];//[[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:subDirectory];
     NSString *path = nil;
     
     NSArray *array = [NSBundle pathsForResourcesOfType:nil inDirectory:bundlePath];
