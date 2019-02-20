@@ -260,12 +260,13 @@
                 formatedMessage = [NSString stringWithFormat:@"%@离开了%@",source,teamName];
                 break;
             case NIMTeamOperationTypeApplyPass:{
-                if ([source isEqualToString:targetText]) {
-                    //说明是以不需要验证的方式进入
-                    formatedMessage = [NSString stringWithFormat:@"%@进入了%@",source,teamName];
-                }else{
-                    formatedMessage = [NSString stringWithFormat:@"%@通过了%@的申请",source,targetText];
-                }
+//                if ([source isEqualToString:targetText]) {
+//                    //说明是以不需要验证的方式进入
+//                    formatedMessage = [NSString stringWithFormat:@"%@进入了%@",source,teamName];
+//                }else{
+//                    formatedMessage = [NSString stringWithFormat:@"%@通过了%@的申请",source,targetText];
+//                }
+                formatedMessage = [NSString stringWithFormat:@"欢迎%@入群",source];
             }
                 break;
             case NIMTeamOperationTypeTransferOwner:
@@ -278,7 +279,8 @@
                 formatedMessage = [NSString stringWithFormat:@"%@被撤销了群管理员身份",targetText];
                 break;
             case NIMTeamOperationTypeAcceptInvitation:
-                formatedMessage = [NSString stringWithFormat:@"%@接受%@的邀请进群",source,targetText];
+//                formatedMessage = [NSString stringWithFormat:@"%@接受%@的邀请进群",source,targetText];
+                formatedMessage = [NSString stringWithFormat:@"欢迎%@入群",source];
                 break;
             case NIMTeamOperationTypeMute:{
                 id attachment = [content attachment];
