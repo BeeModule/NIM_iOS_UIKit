@@ -185,12 +185,11 @@
         
         switch (content.operationType) {
             case NIMTeamOperationTypeInvite:{
-                NSString *str = [NSString stringWithFormat:@"%@邀请%@",source,targets.firstObject];
                 if (targets.count>1) {
-                    str = [str stringByAppendingFormat:@"等%zd人",targets.count];
+                    formatedMessage = [NSString stringWithFormat:@"欢迎%@等%zd人入群",targets.firstObject,targets.count];
+                } else {
+                    formatedMessage = [NSString stringWithFormat:@"欢迎%@入群",targets.firstObject];
                 }
-                str = [str stringByAppendingFormat:@"进入了%@",teamName];
-                formatedMessage = str;
             }
                 break;
             case NIMTeamOperationTypeDismiss:
