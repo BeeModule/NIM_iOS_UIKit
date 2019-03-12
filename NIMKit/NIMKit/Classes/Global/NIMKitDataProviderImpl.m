@@ -248,7 +248,17 @@
         NSString *name = [self nickname:user
                              memberInfo:member
                                  option:option];
-        info.showName = name?:userId;
+        NSString *city;
+        if (userInfo.ext) {
+            NSData *jsonData = [userInfo.ext dataUsingEncoding:NSUTF8StringEncoding];
+            NSError *err;
+            NSDictionary *dic = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingMutableContainers error:&err];
+            if (!err) {
+                city = [dic[@"city"] substringToIndex:2];
+            }
+        }
+        NSString *showName = name?:userId;
+        info.showName = city?[showName stringByAppendingFormat:@"(%@)",city]:showName;
         info.avatarUrlString = userInfo.thumbAvatarUrl;
         info.avatarImage = self.defaultUserAvatar;
     }
