@@ -32,7 +32,7 @@
     //先拿2倍图
     NSString *doubleImage  = [imageName stringByAppendingString:@"@2x"];
     NSString *tribleImage  = [imageName stringByAppendingString:@"@3x"];
-    NSString *bundlePath   = [[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:subDirectory];
+    NSString *bundlePath   = [[NSBundle bundleForClass:NIMKit.class].bundlePath stringByAppendingPathComponent:subDirectory];//[[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:subDirectory];
     NSString *path = nil;
     
     NSArray *array = [NSBundle pathsForResourcesOfType:nil inDirectory:bundlePath];
@@ -94,49 +94,27 @@
 
 
 + (UIImage *)nim_imageInKit:(NSString *)imageName{
+    UIImage *image = [UIImage imageNamed:imageName];
     
-    NSString *bundleName = [[NIMKit sharedKit] resourceBundleName];
-    NSURL *bundleURL = [[NSBundle bundleForClass:[NIMKit class]] URLForResource:bundleName withExtension:nil];
-    
-    if (!bundleURL) // 兼容Pod use_frameworks!下，用户自定义资源文件
-    {
-        bundleURL = [[NSBundle mainBundle] URLForResource:bundleName withExtension:nil];
+    if (image != nil) {
+        return image;
     }
     
-    if (!bundleURL)
-    {
-        return nil;
-    }
-
-    NSBundle *resourceBundle = [NSBundle bundleWithURL:bundleURL];
-    UIImage *image = [UIImage imageNamed:imageName inBundle:resourceBundle compatibleWithTraitCollection:nil];
+    NSURL *url = [[NSBundle bundleForClass:NIMKit.class].resourceURL URLByAppendingPathComponent:NIMKit.sharedKit.resourceBundleName];
+    NSBundle *bundle = [NSBundle bundleWithURL:url];
     
-    NSString *name = [bundleName stringByAppendingPathComponent:imageName];
     //优先取上层bundle 里的图片，如果没有，则用自带资源的图片
-    return image? image : [UIImage imageNamed:name];
+    return [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
 }
 
 + (UIImage *)nim_emoticonInKit:(NSString *)imageName
 {
-    NSParameterAssert(imageName.length != 0);
-    if (imageName.length == 0) {
-        return nil;
-    }
-  
-    NSString *name = [[[NIMKit sharedKit] emoticonBundleName] stringByAppendingPathComponent:imageName];
-    NSParameterAssert(name.length != 0);
-    if (name.length == 0) {
-        return nil;
-    }
-    NSFileManager *fm =[NSFileManager defaultManager];
-    BOOL isDir = NO;
-    BOOL isExist = (![fm fileExistsAtPath:name isDirectory:&isDir] || isDir);
-    NSParameterAssert(isExist);
-    if (!isExist) {
-        return nil;
-    }
     
-    UIImage *image = [UIImage imageNamed:name];
+    NSURL *url = [[NSBundle bundleForClass:NIMKit.class] URLForResource:NIMKit.sharedKit.emoticonBundleName
+                                                          withExtension:nil];
+    NSBundle *bundle = [NSBundle bundleWithURL:url];
+    
+    UIImage *image = [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
     return image;
 }
 
@@ -146,7 +124,6 @@
     UIImage * image = [self nim_imageForUpload:pixels];
     return [image nim_fixOrientation];
 }
-
 
 #pragma mark - Private
 
@@ -305,45 +282,6 @@
     CGImageRelease(cgimg);
     return img;
 }
-
-- (UIImage *)nim_cropedImageWithSize:(CGSize)targetSize
-{
-    // 裁剪两边
-    CGSize sourceSize = self.size;
-    CGFloat cropedWidth = sourceSize.width;
-    CGFloat cropedHeight = sourceSize.height;
-
-    if (CGSizeEqualToSize(targetSize, CGSizeZero) ||
-        CGSizeEqualToSize(sourceSize, CGSizeZero) ||
-        targetSize.width == 0 ||
-        targetSize.height == 0)
-    {
-        return  self;
-    }
-    
-    if (targetSize.width / targetSize.height > sourceSize.width / sourceSize.height)
-    {
-        cropedHeight = cropedWidth * (targetSize.height / targetSize.width);
-    }
-    else
-    {
-        cropedWidth = cropedHeight * (targetSize.width / targetSize.height);
-    }
-    
-    CGRect cropRect = CGRectMake((sourceSize.width - cropedWidth) * .5f, (sourceSize.height - cropedHeight) * .5f, cropedWidth, cropedHeight);
-    CGImageRef imageRef = CGImageCreateWithImageInRect(self.CGImage, cropRect);
-    UIImage *image = [UIImage imageWithCGImage:imageRef];
-    CGImageRelease(imageRef);
-    
-    // 缩放
-    UIGraphicsBeginImageContextWithOptions(targetSize, YES, 0);
-    [image drawInRect:CGRectMake(0, 0, targetSize.width, targetSize.height)];
-    image = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-
-    return image;
-}
-
 
 
 @end

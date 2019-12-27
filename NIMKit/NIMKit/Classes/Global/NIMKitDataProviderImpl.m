@@ -95,10 +95,7 @@
 
 #pragma mark - data provider impl
 
-@interface NIMKitDataProviderImpl()<NIMUserManagerDelegate,
-                                    NIMTeamManagerDelegate,
-                                    NIMLoginManagerDelegate,
-                                    NIMTeamManagerDelegate>
+@interface NIMKitDataProviderImpl()<NIMUserManagerDelegate,NIMTeamManagerDelegate,NIMLoginManagerDelegate>
 
 @property (nonatomic,strong) UIImage *defaultUserAvatar;
 
@@ -119,7 +116,6 @@
         [[NIMSDK sharedSDK].userManager addDelegate:self];
         [[NIMSDK sharedSDK].teamManager addDelegate:self];
         [[NIMSDK sharedSDK].loginManager addDelegate:self];
-        [[NIMSDK sharedSDK].superTeamManager addDelegate:self];
     }
     return self;
 }
@@ -136,8 +132,13 @@
 - (NIMKitInfo *)infoByUser:(NSString *)userId
                     option:(NIMKitInfoFetchOption *)option
 {
-    NIMSession *session = option.message.session?:option.session;
-    NIMKitInfo *info = [self infoByUser:userId session:session option:option];
+    //优先检测是否为机器人
+    NIMKitInfo *info = [self infoByRobot:userId];
+    if (info == nil)
+    {
+        NIMSession *session = option.message.session?:option.session;
+        info = [self infoByUser:userId session:session option:option];
+    }
     return info;
 }
 
@@ -153,17 +154,6 @@
     return info;
 }
 
-- (NIMKitInfo *)infoBySuperTeam:(NSString *)teamId
-                         option:(NIMKitInfoFetchOption *)option
-{
-    NIMTeam *team    = [[NIMSDK sharedSDK].superTeamManager teamById:teamId];
-    NIMKitInfo *info = [[NIMKitInfo alloc] init];
-    info.showName    = team.teamName;
-    info.infoId      = teamId;
-    info.avatarImage = self.defaultTeamAvatar;
-    info.avatarUrlString = team.thumbAvatarUrl;
-    return info;
-}
 
 #pragma mark - 用户信息拼装
 //会话中用户信息
@@ -190,11 +180,6 @@
             info = [self userInfo:userId inChatroom:session.sessionId option:option];
         }
             break;
-        case NIMSessionTypeSuperTeam:
-        {
-            info = [self userInfo:userId inSuperTeam:session.sessionId option:option];
-            break;
-        }
         default:
             NSAssert(0, @"invalid type");
             break;
@@ -232,9 +217,9 @@
     {
         info = [[NIMKitInfo alloc] init];
         info.infoId = userId;
-        NSString *name = [self nicknameWithUser:user
-                                           nick:nil
-                                         option:option];
+        NSString *name = [self nickname:user
+                             memberInfo:nil
+                                 option:option];
         info.showName = name?:userId;
         info.avatarUrlString = userInfo.thumbAvatarUrl;
         info.avatarImage = self.defaultUserAvatar;
@@ -260,37 +245,20 @@
         info = [[NIMKitInfo alloc] init];
         info.infoId = userId;
         
-        NSString *name = [self nicknameWithUser:user
-                                           nick:member.nickname
-                                         option:option];
-        info.showName = name?:userId;
-        info.avatarUrlString = userInfo.thumbAvatarUrl;
-        info.avatarImage = self.defaultUserAvatar;
-    }
-    return  info;
-}
-
-#pragma mark - 超大群用户信息
-- (NIMKitInfo *)userInfo:(NSString *)userId
-             inSuperTeam:(NSString *)teamId
-                  option:(NIMKitInfoFetchOption *)option
-{
-    NIMUser *user = [[NIMSDK sharedSDK].userManager userInfo:userId];
-    NIMUserInfo *userInfo = user.userInfo;
-    NIMTeamMember *member =  [[NIMSDK sharedSDK].superTeamManager teamMember:userId
-                                                                           inTeam:teamId];
-    
-    NIMKitInfo *info;
-    
-    if (userInfo || member)
-    {
-        info = [[NIMKitInfo alloc] init];
-        info.infoId = userId;
-        
-        NSString *name = [self nicknameWithUser:user
-                                           nick:member.nickname
-                                         option:option];
-        info.showName = name?:userId;
+        NSString *name = [self nickname:user
+                             memberInfo:member
+                                 option:option];
+        NSString *city;
+        if (userInfo.ext) {
+            NSData *jsonData = [userInfo.ext dataUsingEncoding:NSUTF8StringEncoding];
+            NSError *err;
+            NSDictionary *dic = [NSJSONSerialization JSONObjectWithData:jsonData options:NSJSONReadingMutableContainers error:&err];
+            if (!err) {
+                city = [dic[@"city"] substringToIndex:2];
+            }
+        }
+        NSString *showName = name?:userId;
+        info.showName = city?[showName stringByAppendingFormat:@"(%@)",city]:showName;
         info.avatarUrlString = userInfo.thumbAvatarUrl;
         info.avatarImage = self.defaultUserAvatar;
     }
@@ -305,21 +273,14 @@
 {
     NIMKitInfo *info = [[NIMKitInfo alloc] init];
     info.infoId = userId;
-    NIMMessageChatroomExtension *ext = [option.message.messageExt isKindOfClass:[NIMMessageChatroomExtension class]] ?
-    (NIMMessageChatroomExtension *)option.message.messageExt : nil;
-    if (ext)
+    
+    if ([userId isEqualToString:[NIMSDK sharedSDK].loginManager.currentAccount])
     {
-        info.showName = ext.roomNickname;
-        info.avatarUrlString = ext.roomAvatar;
-    }
-    else if ([userId isEqualToString:[NIMSDK sharedSDK].loginManager.currentAccount])
-    {
-        NIMSDKAuthMode mode = [[NIMSDK sharedSDK].chatroomManager chatroomAuthMode:roomId];
         
-        switch (mode) {
+        switch ([NIMSDK sharedSDK].loginManager.currentAuthMode) {
             case NIMSDKAuthModeChatroom:
             {
-//                NSAssert([NIMKit sharedKit].independentModeExtraInfo, @"in mode NIMSDKAuthModeChatroom , must has independentModeExtraInfo");
+                NSAssert([NIMKit sharedKit].independentModeExtraInfo, @"in mode NIMSDKAuthModeChatroom , must has independentModeExtraInfo");
                 info.showName        = [NIMKit sharedKit].independentModeExtraInfo.myChatroomNickname;
                 info.avatarUrlString = [NIMKit sharedKit].independentModeExtraInfo.myChatroomAvatar;
             }
@@ -337,16 +298,44 @@
             }
                 break;
         }
+        
     }
-    
+    else
+    {
+        NSAssert(option.message, @"message must has value in chatroom");
+        NIMMessageChatroomExtension *ext = [option.message.messageExt isKindOfClass:[NIMMessageChatroomExtension class]] ?
+        (NIMMessageChatroomExtension *)option.message.messageExt : nil;
+        info.showName = ext.roomNickname;
+        info.avatarUrlString = ext.roomAvatar;
+    }
     info.avatarImage = self.defaultUserAvatar;
     return info;
 }
 
+
+//机器人
+- (NIMKitInfo *)infoByRobot:(NSString *)userId
+{
+    NIMKitInfo *info = nil;
+    if ([[NIMSDK sharedSDK].robotManager isValidRobot:userId])
+    {
+        NIMRobot *robot = [[NIMSDK sharedSDK].robotManager robotInfo:userId];
+        if (robot)
+        {
+            info = [[NIMKitInfo alloc] init];
+            info.infoId   = userId;
+            info.showName = robot.nickname;
+            info.avatarUrlString = robot.thumbAvatarUrl;
+            info.avatarImage = self.defaultUserAvatar;
+        }
+    }
+    return info;
+}
+
 //昵称优先级
-- (NSString *)nicknameWithUser:(NIMUser *)user
-                          nick:(NSString *)nick
-                        option:(NIMKitInfoFetchOption *)option
+- (NSString *)nickname:(NIMUser *)user
+            memberInfo:(NIMTeamMember *)memberInfo
+                option:(NIMKitInfoFetchOption *)option
 {
     NSString *name = nil;
     do{
@@ -355,9 +344,9 @@
             name = user.alias;
             break;
         }
-        if (nick && [nick length])
+        if (memberInfo && [memberInfo.nickname length])
         {
-            name = nick;
+            name = memberInfo.nickname;
             break;
         }
         
@@ -420,6 +409,7 @@
     
 }
 
+
 #pragma mark - NIMTeamManagerDelegate
 - (void)onTeamAdded:(NIMTeam *)team
 {
@@ -449,17 +439,7 @@
     }
     else
     {
-        switch (team.type) {
-            case NIMTeamTypeNormal:
-            case NIMTeamTypeAdvanced:
-                [[NIMKit sharedKit] notifyTeamInfoChanged:@[team.teamId]];
-                break;
-            case NIMTeamTypeSuper:
-                [[NIMKit sharedKit] notifySuperTeamInfoChanged:@[team.teamId]];
-                break;
-            default:
-                break;
-        }
+        [[NIMKit sharedKit] notifyTeamInfoChanged:@[team.teamId]];
     }
 }
 
@@ -471,17 +451,7 @@
     }
     else
     {
-        switch (team.type) {
-            case NIMTeamTypeNormal:
-            case NIMTeamTypeAdvanced:
-                [[NIMKit sharedKit] notifyTeamMemebersChanged:@[team.teamId]];
-                break;
-            case NIMTeamTypeSuper:
-                [[NIMKit sharedKit] notifySuperTeamMemebersChanged:@[team.teamId]];
-                break;
-            default:
-                break;
-        }
+        [[NIMKit sharedKit] notifyTeamMemebersChanged:@[team.teamId]];
     }
 }
 
