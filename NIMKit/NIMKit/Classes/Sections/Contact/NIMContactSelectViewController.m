@@ -118,6 +118,7 @@
 
 - (void)show{
     UIViewController *vc = [UIApplication sharedApplication].keyWindow.rootViewController;
+    vc.modalPresentationStyle = UIModalPresentationFullScreen;
     [vc presentViewController:[[UINavigationController alloc] initWithRootViewController:self] animated:YES completion:nil];
 }
 
@@ -222,8 +223,7 @@
     }
     cell.accessoryBtn.hidden = NO;
     cell.accessoryBtn.selected = [_selectecContacts containsObject:[contactItem memberId]];
-    NIMKitInfo *info = [self.config getInfoById:[contactItem memberId]];
-    [cell refreshItem:contactItem withMemberInfo:info];
+    [cell refreshItem:contactItem];
     return cell;
 }
 

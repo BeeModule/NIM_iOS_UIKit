@@ -111,6 +111,10 @@
     [self.dataSource cleanCache];
 }
 
+- (void)refreshMessageModelShowSelect:(BOOL)isShow {
+    [self.dataSource refreshMessageModelShowSelect:isShow];
+}
+
 - (void)resetMessages:(void(^)(NSError *error))handler{
     [self.dataSource resetMessages:handler];
 }
@@ -259,9 +263,13 @@
         {
             [self sendP2PMessageReceipt:messages];
         }
-        if (self.session.sessionType == NIMSessionTypeTeam)
+        else if (self.session.sessionType == NIMSessionTypeTeam)
         {
             [self sendTeamMessageReceipt:messages];
+        }
+        else if (self.session.sessionType == NIMSessionTypeSuperTeam)
+        {
+            //超大群回执功能未开放，先占位
         }
     }
 }

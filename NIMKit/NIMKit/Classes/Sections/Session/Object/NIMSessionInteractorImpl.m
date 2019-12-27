@@ -40,6 +40,8 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
 
 @property (nonatomic,strong) NSMutableArray *pendingAudioMessages;
 
+@property (nonatomic,assign) NIMKitSessionState sessionState;
+
 @end
 
 @implementation NIMSessionInteractorImpl
@@ -96,6 +98,10 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     NSMutableArray *models = [[NSMutableArray alloc] init];
     for (NIMMessage *message in messages) {
         NIMMessageModel *model = [[NIMMessageModel alloc] initWithMessage:message];
+        model.shouldShowSelect = (_sessionState == NIMKitSessionStateSelect);
+        if ([_sessionConfig respondsToSelector:@selector(disableSelectedForMessage:)]) {
+            model.disableSelected = [_sessionConfig disableSelectedForMessage:model.message];;
+        }
         [models addObject:model];
     }
     NIMSessionMessageOperateResult *result = [self.dataSource insertMessageModels:models];
@@ -111,6 +117,10 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
             continue;
         }        
         NIMMessageModel *model = [[NIMMessageModel alloc] initWithMessage:message];
+        model.shouldShowSelect = (_sessionState == NIMKitSessionStateSelect);
+        if ([_sessionConfig respondsToSelector:@selector(disableSelectedForMessage:)]) {
+            model.disableSelected = [_sessionConfig disableSelectedForMessage:model.message];;
+        }
         [models addObject:model];
     }
     NIMSessionMessageOperateResult *result = [self.dataSource addMessageModels:models];
@@ -132,6 +142,10 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
                 continue;
             }
             NIMMessageModel *model = [[NIMMessageModel alloc] initWithMessage:message];
+            model.shouldShowSelect = (_sessionState == NIMKitSessionStateSelect);
+            if ([_sessionConfig respondsToSelector:@selector(disableSelectedForMessage:)]) {
+                model.disableSelected = [_sessionConfig disableSelectedForMessage:model.message];;
+            }
             [weakSelf.layout calculateContent:model];
             [models addObject:model];
         }
@@ -165,6 +179,14 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     return model;
 }
 
+- (void)setSessionState:(NIMKitSessionState)sessionState {
+    if (_sessionState != sessionState) {
+        [self.dataSource refreshMessageModelShowSelect:(sessionState == NIMKitSessionStateSelect)];
+        [self.layout reloadTable];
+        _sessionState = sessionState;
+    }
+}
+
 - (NIMMessageModel *)findMessageModel:(NIMMessage *)message
 {
     if ([message isKindOfClass:[NIMMessage class]]) {
@@ -176,6 +198,10 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
 - (NSInteger)findMessageIndex:(NIMMessage *)message {
     if ([message isKindOfClass:[NIMMessage class]]) {
         NIMMessageModel *model = [[NIMMessageModel alloc] initWithMessage:message];
+        model.shouldShowSelect = (_sessionState == NIMKitSessionStateSelect);
+        if ([_sessionConfig respondsToSelector:@selector(disableSelectedForMessage:)]) {
+            model.disableSelected = [_sessionConfig disableSelectedForMessage:model.message];;
+        }
         return [self.dataSource indexAtModelArray:model];
     }
     return -1;
@@ -230,10 +256,6 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     __weak typeof(self) wself = self;
     [self.dataSource loadHistoryMessagesWithComplete:^(NSInteger index, NSArray *messages, NSError *error) {
         if (messages.count) {
-            [wself.layout layoutAfterRefresh];
-            NSInteger firstRow = [self findMessageIndex:messages[0]] - 1;
-            [wself.layout adjustOffset:firstRow];
-            
             if (![self.sessionConfig respondsToSelector:@selector(autoFetchAttachment)]
                 || self.sessionConfig.autoFetchAttachment) {
                 [wself.dataSource checkAttachmentState:messages];
@@ -338,7 +360,7 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     NSDictionary *userInfo = notification.userInfo;
     extern NSString *NIMKitInfoKey;
     NSArray *teamIds = userInfo[NIMKitInfoKey];
-    if (self.session.sessionType == NIMSessionTypeTeam
+    if ((self.session.sessionType == NIMSessionTypeTeam || self.session.sessionType == NIMSessionTypeSuperTeam)
         && ([teamIds containsObject:self.session.sessionId] || [teamIds containsObject:[NSNull null]])) {
         [self.delegate didRefreshMessageData];
     }
@@ -349,7 +371,7 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     extern NSString *NIMKitInfoKey;
     NSArray *teamIds = userInfo[NIMKitInfoKey];
     
-    if (self.session.sessionType == NIMSessionTypeTeam
+    if ((self.session.sessionType == NIMSessionTypeTeam || self.session.sessionType == NIMSessionTypeSuperTeam)
         && ([teamIds containsObject:self.session.sessionId] || [teamIds containsObject:[NSNull null]])) {
         [self.delegate didRefreshMessageData];
     }
@@ -439,7 +461,9 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     NIMLocationViewController *vc = [[NIMLocationViewController alloc] initWithNibName:nil bundle:nil];
     vc.delegate = self;
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-    [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:nav animated:YES completion:nil];
+    UIViewController *rootVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+    rootVC.modalPresentationStyle = UIModalPresentationFullScreen;
+    [rootVC presentViewController:nav animated:YES completion:nil];
 }
 
 - (void)onSendLocation:(NIMKitLocationPoint *)locationPoint{ 
@@ -464,6 +488,9 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     [[NIMSDK sharedSDK].mediaManager removeDelegate:self];
 }
 
+- (BOOL)messageCanBeSelected:(NIMMessage *)message {
+    return YES;
+}
 
 #pragma mark - NIMSessionLayoutDelegate
 - (void)onRefresh
@@ -472,8 +499,7 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
     [self loadMessages:^(NSArray *messages, NSError *error) {
         [wself.layout layoutAfterRefresh];
         if (messages.count) {
-            NSInteger row = [self findMessageIndex:messages[0]] - 1;
-            [wself.layout adjustOffset:row];
+            [wself insertMessages:messages];
         }
         if (messages.count)
         {
@@ -533,7 +559,7 @@ dispatch_queue_t NTESMessageDataPrepareQueue()
 {
     //声音的监听放在 viewWillApear 回调里，不在这里添加
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(vcBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
-    if (self.session.sessionType == NIMSessionTypeTeam) {
+    if (self.session.sessionType == NIMSessionTypeTeam || self.session.sessionType == NIMSessionTypeSuperTeam) {
         extern NSString *const NIMKitTeamInfoHasUpdatedNotification;
         extern NSString *const NIMKitTeamMembersHasUpdatedNotification;
         

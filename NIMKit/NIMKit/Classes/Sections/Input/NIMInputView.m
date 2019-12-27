@@ -498,19 +498,30 @@
 - (void)checkAt:(NSString *)text
 {
     if ([text isEqualToString:NIMInputAtStartChar]) {
-        switch (self.session.sessionType) {
-            case NIMSessionTypeTeam:{
+        switch (self.session.sessionType)
+        {
+            case NIMSessionTypeTeam:
+            {
                 NIMContactTeamMemberSelectConfig *config = [[NIMContactTeamMemberSelectConfig alloc] init];
-                if ([self.inputConfig respondsToSelector:@selector(enableRobot)])
-                {
-                    config.enableRobot = [self.inputConfig enableRobot];
-                }
-                else
-                {
-                    config.enableRobot = YES;
-                }
+                config.teamType = NIMKitTeamTypeNomal;
                 config.needMutiSelected = NO;
                 config.teamId = self.session.sessionId;
+                config.session = self.session;
+                config.filterIds = @[[NIMSDK sharedSDK].loginManager.currentAccount];
+                NIMContactSelectViewController *vc = [[NIMContactSelectViewController alloc] initWithConfig:config];
+                vc.delegate = self;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [vc show];
+                });
+            }
+                break;
+            case NIMSessionTypeSuperTeam:
+            {
+                NIMContactTeamMemberSelectConfig *config = [[NIMContactTeamMemberSelectConfig alloc] init];
+                config.teamType = NIMKitTeamTypeSuper;
+                config.needMutiSelected = NO;
+                config.teamId = self.session.sessionId;
+                config.session = self.session;
                 config.filterIds = @[[NIMSDK sharedSDK].loginManager.currentAccount];
                 NIMContactSelectViewController *vc = [[NIMContactSelectViewController alloc] initWithConfig:config];
                 vc.delegate = self;
@@ -520,18 +531,8 @@
             }
                 break;
             case NIMSessionTypeP2P:
-            case NIMSessionTypeChatroom:{
-                if (([self.inputConfig respondsToSelector:@selector(enableRobot)] && self.inputConfig.enableRobot) || [NIMSDK sharedSDK].isUsingDemoAppKey)
-                {
-                    NIMContactRobotSelectConfig *config = [[NIMContactRobotSelectConfig alloc] init];
-                    config.needMutiSelected = NO;
-                    NIMContactSelectViewController *vc = [[NIMContactSelectViewController alloc] initWithConfig:config];
-                    vc.delegate = self;
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        [vc show];
-                    });
-                }
-            }
+                break;
+            case NIMSessionTypeChatroom:
                 break;
             default:
                 break;

@@ -25,4 +25,8 @@
 
 - (UIImage *)nim_imageForAvatarUpload;
 
+- (UIImage *)nim_fixOrientation;
+
+- (UIImage *)nim_cropedImageWithSize:(CGSize)size;
+
 @end

@@ -98,8 +98,8 @@
     id<NIMCellLayoutConfig> layoutConfig = [[NIMKit sharedKit] layoutConfig];
     
     _shouldShowAvatar       = [layoutConfig shouldShowAvatar:self];
-    _shouldShowNickName     = [layoutConfig shouldShowNickName:self];
-    _shouldShowLeft         = [layoutConfig shouldShowLeft:self];
+    _shouldShowNickName     = _focreShowNickName ? YES : [layoutConfig shouldShowNickName:self];
+    _shouldShowLeft         = _focreShowLeft ? YES : [layoutConfig shouldShowLeft:self];
     _avatarMargin           = [layoutConfig avatarMargin:self];
     _nickNameMargin         = [layoutConfig nickNameMargin:self];
     _avatarSize             = [layoutConfig avatarSize:self];
@@ -111,6 +111,9 @@
     if (self.message.session.sessionType == NIMSessionTypeP2P)
     {
         return _shouldShowReadLabel && self.message.isRemoteRead;
+    }
+    else if (self.message.session.sessionType == NIMSessionTypeSuperTeam) { //超大群这个功能还没做
+        return NO;
     }
     else
     {

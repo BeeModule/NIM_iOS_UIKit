@@ -14,6 +14,7 @@
 #import "NIMKitDependency.h"
 #import "TZImageManager.h"
 #import "NIMKitProgressHUD.h"
+#import "UIImage+NIMKit.h"
 
 @interface NIMKitMediaPickerController : TZImagePickerController
 
@@ -37,7 +38,7 @@
 {
     self = [super init];
     if (self) {
-        _mediaTypes = @[(NSString *)kUTTypeMovie,(NSString *)kUTTypeImage];
+        _mediaTypes = @[(NSString *)kUTTypeMovie,(NSString *)kUTTypeImage, (NSString *)kUTTypeGIF];
         _limit = 9;
     }
     return self;
@@ -50,8 +51,13 @@
         if (picker && weakSelf) {
             weakSelf.assetsPicker = picker;
             weakSelf.libraryResultHandler = result;
-            [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:picker animated:YES completion:nil];
-            
+            UIViewController *rootVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+            picker.modalPresentationStyle = UIModalPresentationFullScreen;
+            if (rootVC.presentedViewController) {
+                [rootVC.presentedViewController presentViewController:picker animated:YES completion:nil];
+            } else {
+                [rootVC presentViewController:picker animated:YES completion:nil];
+            }
         }else{
             result(nil,nil,PHAssetMediaTypeUnknown);
         }
@@ -65,9 +71,22 @@
 #if TARGET_IPHONE_SIMULATOR
         NSAssert(0, @"not supported");
 #elif TARGET_OS_IPHONE
-        self.imagePicker.cameraCaptureMode = UIImagePickerControllerCameraCaptureModePhoto;
+        
+        BOOL allowMovie = [_mediaTypes containsObject:(NSString *)kUTTypeMovie];
+        BOOL allowPhoto = [_mediaTypes containsObject:(NSString *)kUTTypeImage];
+        if (allowMovie && !allowPhoto) {
+            self.imagePicker.cameraCaptureMode = UIImagePickerControllerCameraCaptureModeVideo;
+        } else {
+            self.imagePicker.cameraCaptureMode = UIImagePickerControllerCameraCaptureModePhoto;
+        }
         self.imagePicker.videoQuality = UIImagePickerControllerQualityTypeHigh;
-        [[UIApplication sharedApplication].keyWindow.rootViewController presentViewController:self.imagePicker animated:YES completion:nil];
+        UIViewController *rootVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+        rootVC.modalPresentationStyle = UIModalPresentationFullScreen;
+        if (rootVC.presentedViewController) {
+            [rootVC.presentedViewController presentViewController:self.imagePicker animated:YES completion:nil];
+        } else {
+            [rootVC presentViewController:self.imagePicker animated:YES completion:nil];
+        }
 #endif
     }
 }
@@ -93,6 +112,8 @@
                 vc.barItemTextColor = [UIColor whiteColor];
                 vc.navigationBar.barStyle = UIBarStyleDefault;
                 vc.allowPickingVideo = [_mediaTypes containsObject:(NSString *)kUTTypeMovie];
+                vc.allowPickingImage = [_mediaTypes containsObject:(NSString *)kUTTypeImage];
+                vc.allowPickingGif = [_mediaTypes containsObject:(NSString *)kUTTypeGIF];
                 if(handler) handler(vc);
             }
         });
@@ -118,6 +139,11 @@
             [session exportAsynchronouslyWithCompletionHandler:^(void)
              {
                  dispatch_async(dispatch_get_main_queue(), ^{
+                     if (!self.cameraResultHandler)
+                     {
+                         return;
+                     }
+                     
                      if (session.status == AVAssetExportSessionStatusCompleted)
                      {
                          self.cameraResultHandler(outputPath,nil);
@@ -132,14 +158,19 @@
             
         });
         
-    }else{
+    } else {
+        if (!self.cameraResultHandler)
+        {
+            return;
+        }
+        
         UIImage *image = info[UIImagePickerControllerOriginalImage];
+        image = [image nim_fixOrientation];
         self.cameraResultHandler(nil,image);
         self.cameraResultHandler = nil;
     }
     [picker dismissViewControllerAnimated:YES completion:nil];
 }
-
 
 #pragma mark - 相册回调
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingPhotos:(NSArray<UIImage *> *)photos sourceAssets:(NSArray *)assets isSelectOriginalPhoto:(BOOL)isSelectOriginalPhoto infos:(NSArray<NSDictionary *> *)infos
@@ -157,6 +188,11 @@
 }
 
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingVideo:(UIImage *)coverImage sourceAssets:(id)asset{
+    NSMutableArray *items = [[NSMutableArray alloc] initWithArray:@[asset]];
+    [self requestAssets:items];
+}
+
+- (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingGifImage:(UIImage *)animatedImage sourceAssets:(PHAsset *)asset {
     NSMutableArray *items = [[NSMutableArray alloc] initWithArray:@[asset]];
     [self requestAssets:items];
 }
@@ -233,6 +269,7 @@
     _mediaTypes = mediaTypes;
     _imagePicker.mediaTypes = mediaTypes;
     _assetsPicker.allowPickingVideo = [mediaTypes containsObject:(NSString *)kUTTypeMovie];
+    _assetsPicker.allowPickingImage = [mediaTypes containsObject:(NSString *)kUTTypeImage];
 }
 
 - (AVMutableVideoComposition *)getVideoComposition:(AVAsset *)asset

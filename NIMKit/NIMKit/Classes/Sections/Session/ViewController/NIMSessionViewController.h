@@ -75,6 +75,11 @@
 - (void)refreshSessionSubTitle:(NSString *)title;
 
 /**
+ *  刷新消息
+ */
+- (void)refreshMessages;
+
+/**
  *  会话页长按消息可以弹出的菜单
  *
  *  @param message 长按的消息
@@ -82,6 +87,20 @@
  *  @return 菜单，为UIMenuItem的数组
  */
 - (NSArray *)menusItems:(NIMMessage *)message;
+
+
+/**
+*  当前页面状态
+*/
+- (NIMKitSessionState)sessionState;
+
+/**
+*  切换页面状态
+*
+*  @param state 页面状态
+*
+*/
+- (void)setSessionState:(NIMKitSessionState)state;
 
 /**
  *  会话页详细配置
@@ -101,7 +120,8 @@
  *  异步发送消息
  *
  *  @param message 消息
- @  @param 接口调用完成的回调，通常是所有本地工作完成，准备发送时回调
+ *  @param 接口调用完成的回调，通常是所有本地工作完成，准备发送时回调
+ *  @param completion 完成回调
  */
 - (void)sendMessage:(NIMMessage *)message completion:(void(^)(NSError * err))completion;
 
